@@ -163,9 +163,8 @@ fn find_type_die<R: Reader>(
                         // Found our DIE.
                         return Ok(Some(entry.offset()));
                     }
-
-                    some!(entries.next_sibling()?);
                 }
+                some!(entries.next_sibling()?);
             }
             // Continue to next entry (dfs).
             gimli::DW_TAG_subprogram | gimli::DW_TAG_lexical_block  | gimli::DW_TAG_compile_unit => {

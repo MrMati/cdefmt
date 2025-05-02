@@ -1,3 +1,3 @@
 [workspace]
-members = ["decoder", "parser", "examples/stdin"]
+members = ["decoder", "parser", "examples/stdin", "examples/serial-logs"]
 resolver = "2"

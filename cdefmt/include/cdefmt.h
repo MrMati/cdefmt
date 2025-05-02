@@ -255,6 +255,7 @@ void cdefmt_log(const void* log, size_t size, enum cdefmt_level level);
     /* Assign log id */                                                                          \
     CDEFMT_LOG_ARGS(counter_)->log_id = CDEFMT_LOG_STRING(counter_);                             \
     size_t cdefmt_dynamic_offset = 0;                                                            \
+    (void) cdefmt_dynamic_offset;                                                                \
                                                                                                  \
     /* Assign arguments */                                                                       \
     CDEFMT_ASSIGN_LOG_ARGS(counter_, args_seq_)                                                  \
@@ -295,7 +296,7 @@ void cdefmt_log(const void* log, size_t size, enum cdefmt_level level);
 
 /* Generates entire metadata string variable */
 #define CDEFMT_GENERATE_METADATA_STRING(counter_, level_, file_, line_, message_, args_seq_) \
-  const static __attribute__((section(".cdefmt"))) char CDEFMT_LOG_STRING(counter_)[] =      \
+  static const __attribute__((section(".cdefmt"))) char CDEFMT_LOG_STRING(counter_)[] =      \
       CDEFMT_FORMAT_METADATA(counter_, level_, file_, line_, message_, args_seq_)
 
 /* ======================================== Log Argument ======================================== */
@@ -346,7 +347,7 @@ struct cdefmt_build_id {
 
 #define __CDEFMT_INIT(counter_)                                                                    \
   do {                                                                                             \
-    const static __attribute__((section(".cdefmt.init"))) char CDEFMT_LOG_STRING(counter_)[] =     \
+	static const __attribute__((section(".cdefmt.init"))) char CDEFMT_LOG_STRING(counter_)[] =     \
         CDEFMT_FORMAT_METADATA(counter_, __CDEFMT_LEVEL_ERR, __FILE__, 0, "cdefmt init: {}", );    \
                                                                                                    \
     struct __attribute__((packed)) CDEFMT_LOG_ARGS_T(counter_) {                                   \

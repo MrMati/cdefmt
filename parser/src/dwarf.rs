@@ -149,9 +149,6 @@ fn find_type_die<R: Reader>(
     // Get entries to point to the compilation unit.
     some!(entries.next_dfs()?);
 
-    // Actually step into the compilation unit.
-    some!(entries.next_dfs()?);
-
     loop {
         let entry = entries.current().unwrap();
 
@@ -171,7 +168,7 @@ fn find_type_die<R: Reader>(
                 }
             }
             // Continue to next entry (dfs).
-            gimli::DW_TAG_subprogram | gimli::DW_TAG_lexical_block => {
+            gimli::DW_TAG_subprogram | gimli::DW_TAG_lexical_block  | gimli::DW_TAG_compile_unit => {
                 some!(entries.next_dfs()?);
             }
             // Continue to next sibling, if there's no sibling, go up.

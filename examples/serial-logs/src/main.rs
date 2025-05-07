@@ -6,6 +6,8 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
+use std::net::UdpSocket;
+use cdefmt_decoder::var::Var;
 
 /// CLI args
 #[derive(clap::Parser, Debug)]
@@ -28,6 +30,15 @@ struct Args {
     status_only: bool,
 }
 
+fn timeplot_data(channel: &str, series: &str, value: u32) -> String {
+    format!("{{TIMEPLOT:{}|DATA|{}|T|{:.2}}}\n", channel, series, value)
+}
+
+fn xyplot_data(channel: &str, series: &str, x: u64, y: u32) -> String {
+    format!("{{XYPLOT:{}|DATA|{}|{}|{}}}", 
+            channel, series, x, y)
+}
+
 const BUF_SIZE: usize = 64;
 
 struct LogProcessor<'a> {
@@ -39,6 +50,7 @@ struct LogProcessor<'a> {
     // Takes ownership of the Decoder value, but Decoder still borrows mmap data
     decoder: cdefmt_decoder::Decoder<'a>,
     status_only: bool,
+    socket: UdpSocket
 }
 
 impl<'a> LogProcessor<'a> {
@@ -47,8 +59,12 @@ impl<'a> LogProcessor<'a> {
         port: Box<dyn SerialPort>,
         decoder: cdefmt_decoder::Decoder<'a>,
         status_only: bool,
+        socket: UdpSocket
     ) -> Self {
         let now = Instant::now();
+
+
+
         Self {
             msg_count: 0,
             dropped_count: 0,
@@ -57,6 +73,7 @@ impl<'a> LogProcessor<'a> {
             port,
             decoder,
             status_only,
+            socket
         }
     }
 
@@ -76,8 +93,20 @@ impl<'a> LogProcessor<'a> {
 
         match self.decoder.decode_log(&decoded[4..]) {
             Ok(log) => {
+
+                let value = log.get_args().unwrap().first().unwrap();
+                match value {
+                    Var::U32(v) => {
+                        //let message = timeplot_data("Waveform", "ADC", *v);
+                        let message = xyplot_data("Waveform", "ADC", self.msg_count, *v);
+                        self.socket.send(message.as_bytes()).unwrap();
+                    }
+                    _ => {}
+                }
+                
+                self.msg_count += 1;
                 if self.status_only {
-                    self.msg_count += 1;
+                    
                     let now = Instant::now();
 
                     if now.duration_since(self.last_status_update) >= Duration::from_secs(1) {
@@ -173,7 +202,10 @@ fn main() -> Result<(), String> {
         .open()
         .map_err(|e| format!("Failed to open port '{}': {}", args.port, e))?;
 
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| format!("Failed to bind UDP 0.0.0.0 : {}", e))?;
+    socket.connect("127.0.0.1:8888").map_err(|e| format!("Failed to connect UDP :8888 : {}", e))?;
+
     // Pass owned port and decoder to the constructor
-    let mut log_processor = LogProcessor::new(port, decoder, args.status_only);
+    let mut log_processor = LogProcessor::new(port, decoder, args.status_only, socket);
     log_processor.process_serial_stream()
 }

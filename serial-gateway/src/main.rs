@@ -153,7 +153,7 @@ impl<'a> SerialGateway<'a> {
                 if self.status_only {
                     let now = Instant::now();
 
-                    if now.duration_since(self.last_status_update) >= Duration::from_secs(1) {
+                    if now > self.last_status_update {
                         let elapsed_secs = now.duration_since(self.start_time).as_secs_f64();
                         let rate = self.msg_count as f64 / elapsed_secs.max(1.0);
 
@@ -167,7 +167,7 @@ impl<'a> SerialGateway<'a> {
                         );
                         stdout().flush().map_err(|e| e.to_string())?;
 
-                        self.last_status_update = now;
+                        self.last_status_update = now + Duration::from_secs(1);
                     }
                 } else {
                     println!("{:<7} > {}", log.get_level(), log)
@@ -283,7 +283,6 @@ fn main() -> Result<(), String> {
         args.command_port,
     )?;
 
-    // Print messages after successful initialization
     println!(
         "Telemetry UDP socket configured to send to 127.0.0.1:{} for plot data.",
         args.telemetry_port

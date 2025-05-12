@@ -72,12 +72,39 @@ define_var_enum_with_string_ids! {
     #[derive(Debug)]
     #[repr(u8)]
     pub enum Variable {
-        #[id = "PWM_A"] // Variable ID text protocol
-        PwmA(u16) = 0x01, // ID used in serial transmission
-        #[id = "PWM_B"]
-        PwmB(u16) = 0x02,
-        #[id = "F_TEST"]
-        FTest(f32) = 0x03,
+        #[id = "setpoint"] // Variable ID text protocol
+        Setpoint(u16) = 0x01, // ID used in serial transmission
+        #[id = "maxOut"]
+        MaxOut(u8) = 0x02,
+        #[id = "speedAlpha"]
+        SpeedAlpha(f32) = 0x03,
+        #[id = "speedSetpoint"]
+        SpeedSetpoint(i16) = 0x04,
+        #[id = "psc"]
+        Psc(u32) = 0x05,
+        #[id = "setFreq"]
+        SetFreq(u16) = 0x06,
+        #[id = "setCalib"]
+        SetCalib(u16) = 0x07,
+
+        #[id = "speedPID_P"]
+        SpeedP(f32) = 0x10,
+        #[id = "speedPID_I"]
+        SpeedI(f32) = 0x11,
+        #[id = "speedPID_D"]
+        SpeedD(f32) = 0x12,
+        #[id = "speedPID_F"]
+        SpeedF(f32) = 0x13,
+
+        #[id = "posPID_P"]
+        PosP(f32) = 0x14,
+        #[id = "posPID_I"]
+        PosI(f32) = 0x15,
+        #[id = "posPID_D"]
+        PosD(f32) = 0x16,
+
+        #[id = "runReset"]
+        RunReset(u8) = 0xA0,
     }
 }
 

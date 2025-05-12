@@ -45,8 +45,8 @@ fn timeplot_data(channel: &str, series: &str, value: u32) -> String {
     format!("{{TIMEPLOT:{}|DATA|{}|T|{:.2}}}\n", channel, series, value)
 }
 
-fn xyplot_data(channel: &str, series: &str, x: u64, y: u32) -> String {
-    format!("{{XYPLOT:{}|DATA|{}|{}|{}}}\n", channel, series, x, y)
+fn xyplot_data(channel: &str, series: &str, x: u64, y: f32) -> String {
+    format!("{{XYPLOT:{}|DATA|{}|{}|{:.2}}}\n", channel, series, x, y)
 }
 
 const SERIAL_BUF_SIZE: usize = 64;
@@ -89,10 +89,8 @@ impl<'a> SerialGateway<'a> {
             })?;
 
         // Command UDP socket (for receiving commands to send to serial)
-        let command_std_socket =
-            StdUdpSocket::bind(format!("0.0.0.0:{}", command_port)).map_err(|e| {
-                format!("Failed to bind command UDP port {}: {}", command_port, e)
-            })?;
+        let command_std_socket = StdUdpSocket::bind(format!("0.0.0.0:{}", command_port))
+            .map_err(|e| format!("Failed to bind command UDP port {}: {}", command_port, e))?;
         command_std_socket
             .set_nonblocking(true)
             .map_err(|e| format!("Failed to set command UDP to non-blocking: {}", e))?;
@@ -103,10 +101,20 @@ impl<'a> SerialGateway<'a> {
 
         poll.registry()
             .register(&mut port, SERIAL_TOKEN, Interest::READABLE)
-            .map_err(|e| format!("Failed to register serial port with poll: {}", e.to_string()))?;
+            .map_err(|e| {
+                format!(
+                    "Failed to register serial port with poll: {}",
+                    e.to_string()
+                )
+            })?;
         poll.registry()
             .register(&mut command_socket, COMMAND_UDP_TOKEN, Interest::READABLE)
-            .map_err(|e| format!("Failed to register command UDP socket with poll: {}", e.to_string()))?;
+            .map_err(|e| {
+                format!(
+                    "Failed to register command UDP socket with poll: {}",
+                    e.to_string()
+                )
+            })?;
 
         Ok(Self {
             msg_count: 0,
@@ -123,9 +131,67 @@ impl<'a> SerialGateway<'a> {
         })
     }
 
+    /// Processes a decoded log frame for telemetry purposes.
+    /// Sends data via UDP for plotting.
+    fn process_telemetry_log(&mut self, log: &cdefmt_decoder::log::Log) -> Result<(), String> {
+        if let Some(args) = log.get_args() {
+            let position = match args.get(0) {
+                Some(&Var::U16(v)) => v,
+                _ => return Err("arg 0 missing".into()),
+            };
+
+            let setpoint = match args.get(1) {
+                Some(&Var::U16(v)) => v,
+                _ => return Err("arg 1 missing".into()),
+            };
+
+            let pos_pid = match args.get(2) {
+                Some(&Var::F32(v)) => v,
+                _ => return Err("arg 2 missing".into()),
+            };
+
+            let speed_pid = match args.get(3) {
+                Some(&Var::F32(v)) => v,
+                _ => return Err("arg 3 missing".into()),
+            };
+
+            let speed = match args.get(4) {
+                Some(&Var::F32(v)) => v,
+                _ => return Err("arg 4 missing".into()),
+            };
+
+            let message = xyplot_data("Waveform1", "position", self.msg_count, position as f32);
+            self.telemetry_socket
+                .send(message.as_bytes())
+                .map_err(|e| e.to_string())?;
+
+            let message = xyplot_data("Waveform2", "setpoint", self.msg_count, setpoint as f32);
+            self.telemetry_socket
+                .send(message.as_bytes())
+                .map_err(|e| e.to_string())?;
+
+            let message = xyplot_data("Waveform3", "posPID", self.msg_count, pos_pid);
+            self.telemetry_socket
+                .send(message.as_bytes())
+                .map_err(|e| e.to_string())?;
+
+            let message = xyplot_data("Waveform4", "speedPID", self.msg_count, speed_pid);
+            self.telemetry_socket
+                .send(message.as_bytes())
+                .map_err(|e| e.to_string())?;
+
+            let message = xyplot_data("Waveform5", "speed", self.msg_count, speed);
+            self.telemetry_socket
+                .send(message.as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     /// Handles a single successfully COBS-decoded frame.
     fn handle_decoded_frame(&mut self, decoded: &[u8]) -> Result<(), String> {
         if decoded.len() < 4 {
+            self.dropped_count += 1;
             eprintln!("Frame too short");
             return Ok(());
         }
@@ -139,16 +205,9 @@ impl<'a> SerialGateway<'a> {
 
         match self.decoder.decode_log(&decoded[4..]) {
             Ok(log) => {
-                let value = log.get_args().unwrap().first().unwrap();
-                match value {
-                    Var::F32(v) => {
-                        //let message = timeplot_data("Waveform", "ADC", *v);
-                        let message = xyplot_data("Waveform", "ADC", self.msg_count, *v as u32);
-                        self.telemetry_socket.send(message.as_bytes()).unwrap();
-                    }
-                    _ => {}
+                if let Err(e) = self.process_telemetry_log(&log) {
+                    eprintln!("Failed to process telemetry log: {}", e);
                 }
-
                 self.msg_count += 1;
                 if self.status_only {
                     let now = Instant::now();
@@ -167,7 +226,7 @@ impl<'a> SerialGateway<'a> {
                         );
                         stdout().flush().map_err(|e| e.to_string())?;
 
-                        self.last_status_update = now + Duration::from_secs(1);
+                        self.last_status_update = now + Duration::from_millis(500);
                     }
                 } else {
                     println!("{:<7} > {}", log.get_level(), log)

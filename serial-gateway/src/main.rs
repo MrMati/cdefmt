@@ -140,22 +140,22 @@ impl<'a> SerialGateway<'a> {
                 _ => return Err("arg 0 missing".into()),
             };
 
-            let setpoint = match args.get(1) {
+            let set_pos = match args.get(1) {
                 Some(&Var::U16(v)) => v,
                 _ => return Err("arg 1 missing".into()),
             };
 
-            let pos_pid = match args.get(2) {
+            let speed = match args.get(2) {
                 Some(&Var::F32(v)) => v,
                 _ => return Err("arg 2 missing".into()),
             };
 
-            let speed_pid = match args.get(3) {
+            let speed_set = match args.get(3) {
                 Some(&Var::F32(v)) => v,
                 _ => return Err("arg 3 missing".into()),
             };
 
-            let speed = match args.get(4) {
+            let speed_out = match args.get(4) {
                 Some(&Var::F32(v)) => v,
                 _ => return Err("arg 4 missing".into()),
             };
@@ -165,25 +165,27 @@ impl<'a> SerialGateway<'a> {
                 .send(message.as_bytes())
                 .map_err(|e| e.to_string())?;
 
-            let message = xyplot_data("Waveform2", "setpoint", self.msg_count, setpoint as f32);
+            let message = xyplot_data("Waveform2", "posSetpoint", self.msg_count, set_pos as f32);
             self.telemetry_socket
                 .send(message.as_bytes())
                 .map_err(|e| e.to_string())?;
 
-            let message = xyplot_data("Waveform3", "posPID", self.msg_count, pos_pid);
+                let message = xyplot_data("Waveform3", "speed", self.msg_count, speed);
+                self.telemetry_socket
+                    .send(message.as_bytes())
+                    .map_err(|e| e.to_string())?;
+
+            let message = xyplot_data("Waveform4", "speedSetpoint", self.msg_count, speed_set);
             self.telemetry_socket
                 .send(message.as_bytes())
                 .map_err(|e| e.to_string())?;
 
-            let message = xyplot_data("Waveform4", "speedPID", self.msg_count, speed_pid);
+            let message = xyplot_data("Waveform5", "speedPID", self.msg_count, speed_out);
             self.telemetry_socket
                 .send(message.as_bytes())
                 .map_err(|e| e.to_string())?;
 
-            let message = xyplot_data("Waveform5", "speed", self.msg_count, speed);
-            self.telemetry_socket
-                .send(message.as_bytes())
-                .map_err(|e| e.to_string())?;
+
         }
         Ok(())
     }

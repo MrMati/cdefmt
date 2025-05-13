@@ -86,6 +86,10 @@ define_var_enum_with_string_ids! {
         SetFreq(u16) = 0x06,
         #[id = "setCalib"]
         SetCalib(u16) = 0x07,
+        #[id = "mode"]
+        Mode(u8) = 0x08,
+        #[id = "minOut"]
+        MinOut(u8) = 0x09,
 
         #[id = "speedPID_P"]
         SpeedP(f32) = 0x10,
